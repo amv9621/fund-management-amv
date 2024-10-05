@@ -18,4 +18,6 @@ public class Fund {
     private String name;
     private String description;
     private String categoryId;
+    private Double minInitialValue;
+    private Double balance;
 }

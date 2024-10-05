@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.Date;
+
 @Getter
 @Builder
 @AllArgsConstructor
@@ -18,4 +20,7 @@ public class Subscription {
     private String userId;
     private String fundId;
     private String status;
+    private Date openingDate;
+    private Date cancellationDate;
+    private Double initialValue;
 }

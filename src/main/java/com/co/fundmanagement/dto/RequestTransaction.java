@@ -10,5 +10,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class RequestTransaction {
+    private String userId;
+    private String fundId;
+    private String transactionType;
+    private String subscriptionId;//Optional if transactionType is CANCELLATION
+    private Double initialValue;
 
 }
