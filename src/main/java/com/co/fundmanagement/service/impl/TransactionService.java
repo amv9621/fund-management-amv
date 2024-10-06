@@ -3,7 +3,6 @@ package com.co.fundmanagement.service.impl;
 import com.co.fundmanagement.dto.RequestTransaction;
 import com.co.fundmanagement.enums.SubscriptionStatusEnum;
 import com.co.fundmanagement.enums.TransactionTypeEnum;
-import com.co.fundmanagement.model.Fund;
 import com.co.fundmanagement.model.Response;
 import com.co.fundmanagement.model.Subscription;
 import com.co.fundmanagement.model.Transaction;
@@ -17,15 +16,13 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.security.auth.login.AccountNotFoundException;
-import java.util.Date;
+
+import static com.co.fundmanagement.factory.FactoryObject.*;
 
 @Service
 public class TransactionService implements ITransactionService {
     @Autowired
     private TransactionRepository transactionRepository;
-
-    @Autowired
-    private TransactionTypeRepository transactionTypeRepository;
 
     @Autowired
     private CategoryRepository categoryRepository;
@@ -45,10 +42,9 @@ public class TransactionService implements ITransactionService {
     public Mono<Response> createTransaction(RequestTransaction request) {
         return userRepository.findById(request.getUserId())
                 .switchIfEmpty(Mono.error(new AccountNotFoundException("User not found")))
-                .flatMap(user -> subscriptionRepository.findByUserIdAndFundId(request.getUserId(), request.getFundId())
+                .flatMap(user -> subscriptionRepository.findByUserIdAndFundIdAndStatus(request.getUserId(), request.getFundId(), SubscriptionStatusEnum.ACTIVE.name())
                         .flatMap(subscription -> {
-                            if (SubscriptionStatusEnum.ACTIVE.name().equals(subscription.getStatus()) &&
-                                    !TransactionTypeEnum.CANCELLATION.name().equals(request.getTransactionType())) {
+                            if (!TransactionTypeEnum.CANCELLATION.name().equals(request.getTransactionType())) {
                                 return Mono.error(new AccountNotFoundException("You have an ACTIVE Subscription"));
                             }
                             return Mono.just(subscription);
@@ -64,68 +60,21 @@ public class TransactionService implements ITransactionService {
                                         Mono.just(fund)
                                                 .filter(fundOpening -> request.getInitialValue() >= fundOpening.getMinInitialValue())
                                                 .switchIfEmpty(Mono.error(new AccountNotFoundException("El valor ingresado no es mayor o igual al valor minimo de vinculacion")))
-                                                .map(type -> Fund.builder()
-                                                        .id(fund.getId())
-                                                        .name(fund.getName())
-                                                        .description(fund.getDescription())
-                                                        .minInitialValue(fund.getMinInitialValue())
-                                                        .categoryId(fund.getCategoryId())
-                                                        .balance(fund.getBalance() + request.getInitialValue())
-                                                        .build())
+                                                .map(fundSave -> createFund(fundSave, fund.getBalance() + request.getInitialValue()))
                                                 .flatMap(fundSave -> fundRepository.save(fundSave))
-                                                .map(type -> Subscription.builder()
-                                                        .userId(request.getUserId())
-                                                        .fundId(request.getFundId())
-                                                        .status(SubscriptionStatusEnum.ACTIVE.name())
-                                                        .openingDate(new Date())
-                                                        .userId(request.getUserId())
-                                                        .initialValue(request.getInitialValue())
-                                                        .build())
+                                                .map(fundSaved -> createSubscription(request))
                                                 .flatMap(subscriptionSave -> subscriptionRepository.save(subscriptionSave))
-                                                .map(subscriptionSaved -> Transaction.builder()
-                                                        .date(subscriptionSaved.getOpeningDate())
-                                                        .subscriptionId(subscriptionSaved.getId())
-                                                        .userId(request.getUserId())
-                                                        .transactionType(request.getTransactionType())
-                                                        .build())
+                                                .map(subscriptionSaved -> createTransactionObject(subscriptionSaved, request))
                                                 .flatMap(transaction -> transactionRepository.save(transaction))
-                                                .map(transaction -> Response.builder()
-                                                        .code(200)
-                                                        .message("Subscripcion iniciada con exito")
-                                                        .body(transaction)
-                                                        .build()) :
+                                                .map(transaction -> createResponse(transaction, "Subscripcion iniciada con exito")) :
                                         TransactionTypeEnum.CANCELLATION.name().equals(request.getTransactionType()) ?
-                                                Mono.just(Subscription.builder()
-                                                                .id(subscription.getId())
-                                                                .userId(subscription.getUserId())
-                                                                .fundId(subscription.getFundId())
-                                                                .initialValue(subscription.getInitialValue())
-                                                                .openingDate(subscription.getOpeningDate())
-                                                                .cancellationDate(new Date())
-                                                                .status(SubscriptionStatusEnum.INACTIVE.name())
-                                                                .build())
+                                                Mono.just(updateSubscription(subscription))
                                                         .flatMap(subscriptionSave -> subscriptionRepository.save(subscriptionSave)
-                                                                .map(subscriptionSaved -> Fund.builder()
-                                                                        .id(fund.getId())
-                                                                        .name(fund.getName())
-                                                                        .categoryId(fund.getCategoryId())
-                                                                        .minInitialValue(fund.getMinInitialValue())
-                                                                        .description(fund.getDescription())
-                                                                        .balance(fund.getBalance() - subscriptionSaved.getInitialValue())
-                                                                        .build())
+                                                                .map(subscriptionSaved -> createFund(fund, fund.getBalance() - subscriptionSaved.getInitialValue()))
                                                                 .flatMap(updateFund -> fundRepository.save(updateFund))
-                                                                .map(transaction -> Transaction.builder()
-                                                                        .date(new Date())
-                                                                        .userId(request.getUserId())
-                                                                        .subscriptionId(subscription.getId())
-                                                                        .transactionType(request.getTransactionType())
-                                                                        .build())
+                                                                .map(transaction -> createTransactionObject(subscription, request))
                                                                 .flatMap(transaction -> transactionRepository.save(transaction)))
-                                                        .map(transaction -> Response.builder()
-                                                                .code(200)
-                                                                .message("Subscripcion cancelada con exito - El valor inicial de la vinculacion fue devuelto")
-                                                                .body(transaction)
-                                                                .build()) :
+                                                        .map(transaction -> createResponse(transaction, "Subscripcion cancelada con exito - El valor inicial de la vinculacion fue devuelto")) :
 
                                                 Mono.error(new AccountNotFoundException("Validate subscriptionId - TransactionType not found"))
                         ));
