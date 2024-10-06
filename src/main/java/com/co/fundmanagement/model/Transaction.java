@@ -18,6 +18,7 @@ public class Transaction {
     @Id
     private String id;
     private Date date;
+    private String userId;
     private String subscriptionId;
-    private String transactionTypeId;
+    private String transactionType;
 }
