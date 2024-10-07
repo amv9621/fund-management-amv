@@ -1,6 +1,5 @@
 # Fund Management AMV
-
-_AMARIS_   
+ 
 _Edición: 2024_
 
 ## Planteamiento
