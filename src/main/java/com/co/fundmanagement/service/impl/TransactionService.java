@@ -42,7 +42,11 @@ public class TransactionService implements ITransactionService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private EmailService emailService;
+
     private static final Logger logger = LoggerFactory.getLogger(TransactionService.class);
+
 
     @Override
     public Mono<Response> createTransaction(RequestTransaction request) {
@@ -81,7 +85,9 @@ public class TransactionService implements ITransactionService {
                 .map(fundSave -> createFund(fundSave, fund.getBalance() + request.getInitialValue()))
                 .flatMap(fundSave -> fundRepository.save(fundSave))
                 .map(fundSaved -> createSubscription(request))
-                .flatMap(subscriptionSave -> subscriptionRepository.save(subscriptionSave))
+                .flatMap(subscriptionSave -> subscriptionRepository.save(subscriptionSave)
+                        .flatMap(subs -> emailService.sendEmail("amvelasquez9621@gmail.com","Suscripcion exitosa","Se ha suscrito al fondo"))
+                        .thenReturn(subscriptionSave))
                 .map(subscriptionSaved -> createTransactionObject(subscriptionSaved, request))
                 .flatMap(transaction -> transactionRepository.save(transaction))
                 .map(transaction -> createResponse(transaction, SUBSCRIPTION_OPENING.getMessage()));
