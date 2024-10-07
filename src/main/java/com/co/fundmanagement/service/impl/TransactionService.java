@@ -31,9 +31,6 @@ public class TransactionService implements ITransactionService {
     private TransactionRepository transactionRepository;
 
     @Autowired
-    private CategoryRepository categoryRepository;
-
-    @Autowired
     private FundRepository fundRepository;
 
     @Autowired
@@ -93,9 +90,9 @@ public class TransactionService implements ITransactionService {
                     .doOnNext(subscription -> logger.info("Status: {}", subscription.getStatus()))
                     .flatMap(subscription -> {
                         if (ACTIVE.name().equals(subscription.getStatus())) {
-                            return Mono.error(new ActiveSubscriptionException(ACTIVE_SUBSCRIPTION.getMessage()));
+                            return Mono.error(new SubscriptionException(ACTIVE_SUBSCRIPTION.getMessage()));
 
-                        } else{
+                        } else {
                             logger.info(SUBSCRIPTION_NOT_FOUND.getMessage());
                             return Mono.just(new Subscription());
                         }
@@ -104,9 +101,9 @@ public class TransactionService implements ITransactionService {
             if (Objects.nonNull(request.getSubscriptionId())) {
                 return subscriptionRepository.findByIdAndUserId(request.getSubscriptionId(), request.getUserId())
                         .filter(subscription -> ACTIVE.name().equals(subscription.getStatus()))
-                        .switchIfEmpty(Mono.error(new ActiveSubscriptionException(INACTIVE_SUBSCRIPTION.getMessage())));
+                        .switchIfEmpty(Mono.error(new SubscriptionException(INACTIVE_SUBSCRIPTION.getMessage())));
             } else {
-                return Mono.error(new ActiveSubscriptionException(VALIDATE_SUBSCRIPTION.getMessage()));
+                return Mono.error(new SubscriptionException(VALIDATE_SUBSCRIPTION.getMessage()));
             }
         } else {
             logger.info(SUBSCRIPTION_NOT_FOUND.getMessage());
@@ -119,7 +116,7 @@ public class TransactionService implements ITransactionService {
                 .onErrorResume(UserNotFoundException.class, e -> Mono.just(new Response(NOT_FOUND.value(), e.getMessage())))
                 .onErrorResume(FundNotFoundException.class, e -> Mono.just(new Response(NOT_FOUND.value(), e.getMessage())))
                 .onErrorResume(MinValueException.class, e -> Mono.just(new Response(NOT_FOUND.value(), e.getMessage())))
-                .onErrorResume(ActiveSubscriptionException.class, e -> Mono.just(new Response(NOT_FOUND.value(), e.getMessage())))
+                .onErrorResume(SubscriptionException.class, e -> Mono.just(new Response(NOT_FOUND.value(), e.getMessage())))
                 .onErrorResume(ValidateArgumentsException.class, e -> Mono.just(new Response(NOT_FOUND.value(), e.getMessage())))
                 .onErrorResume(e -> {
                     logger.error(UNEXPECTED.getMessage(), e);
